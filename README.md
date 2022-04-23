@@ -32,6 +32,11 @@ To conclude, in order to find a DLL and its imports, one should follow these ste
 5. Check import names from the Name field of Hint/Name Table entries.
 
 # How HideThunk Works?
+Recently, while examining the ImportDLLInjection technique shared by x86matthew, I saw how to add a fake entry to the Import Directory of DLLs loaded in memory. Afterwards, I wanted to develop a little project that adds a fake entry directly to the import table of a binary on disk, both for fun and to refresh my knowledge. While reviewing the DLL Loading process to develop this project, the Hint field in the Hint/Name Table entries used in this process caught my attention. 
+
+According to the MSDN document, I learned that this field is used by Windows Loader to find the address of that import, which is imported by name, directly from the export name table of the DLL it is in. However, in the same document, it was stated that if the function cannot be found by using this field, that function will be searched via a binary search operation in the DLL's export name table. Based on this sentence, I thought that putting an incorrect value for this field would not disrupt the DLL Loading process.
+
+As I mentioned above, there is an entry to the Hint/Name table corresponding to each function to be imported. In other words, we have 2 bytes to use for each import.
 
 # Files
 
@@ -41,3 +46,4 @@ To conclude, in order to find a DLL and its imports, one should follow these ste
 - https://stackoverflow.com/questions/32841368/whats-the-difference-between-the-import-table-import-adress-table-and-import
 - https://0xrick.github.io/win-internals/pe6/
 - https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#hintname-table
+- https://www.x86matthew.com/view_post?id=import_dll_injection
