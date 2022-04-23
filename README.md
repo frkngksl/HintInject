@@ -10,7 +10,9 @@ Simply, Import Lookup Table leads to the information of imports, and Import Addr
 
 Without going into some detail, we can take a look at the diagram below to see the relationship between these three tables.
 
-![image](https://user-images.githubusercontent.com/26549173/164817710-18070017-a8f1-4346-8a1f-2c275152c074.png)
+<p align="center">
+<img src="https://user-images.githubusercontent.com/26549173/164817710-18070017-a8f1-4346-8a1f-2c275152c074.png">
+</p>
 
 If we go into a little more detail, the Import Lookup Table doesn't hold names of imports directly. For the functions that are imported by name, it holds RVAs of `Hint/Name Table` entries. These entries store the function names as Null terminated ASCII strings. Therefore, the struct definition of a Hint/Name Table entry is as follows:
 ```
@@ -21,7 +23,9 @@ typedef struct _IMAGE_IMPORT_BY_NAME {
 ```
 The Hint field here is actually an index into the export name pointer table of the DLL. It is used to accelerate finding the position of that import. Therefore, we can summarize the relationship between the Import Lookup Table and the Hint/Name table with the diagram below.
 
-![image](https://user-images.githubusercontent.com/26549173/164833587-a9a39601-5a0f-49a4-b2ce-4b66c5b28d91.png)
+<p align="center">
+<img src="https://user-images.githubusercontent.com/26549173/164833587-a9a39601-5a0f-49a4-b2ce-4b66c5b28d91.png">
+</p>
 
 To conclude, in order to find a DLL and its imports, one should follow these steps:
 
@@ -38,11 +42,17 @@ According to the MSDN document, I learned that this field is used by Windows Loa
 
 As I mentioned above, there is an entry to the Hint/Name table corresponding to each function to be imported. In other words, we have 2 bytes to use for each import. By combining multiple imports, enough Hint fields can be obtained to store malicious shellcodes. As a result, one can use a loader binary to embed the shellcode in the Hint/Name entries of the fake import DLL entry. That loader binary can reach these entries to merge the shellcode to be executed during runtime.
 
-HideThunk can be used to create such a loader that holds the shellcode in its Hint/Name table.
+HideThunk can be used to create such a loader that holds the shellcode in its Hint/Name table. It firsts creates a new section named `.rrdata`, and copies the current import directory into this section. After that, it appends a new fake entry whose imports will be used to hold input shellcode. The remaining bytes of the section are used as to store Import Lookup Table, Import Address Table, DLL name and Hint/Name table of the new fake entry. As the last step, HideThunk uses the Hint fields of imports to put chunks of input shellcode. Approximately, the memory layout of the new section is as follows:
+
+<p align="center">
+<img width="460" height="400" src="https://user-images.githubusercontent.com/26549173/164948439-a7e05320-a290-4a44-9dcf-3ac680b9c275.png">
+</p>
 
 # Files
 
-# Demo
+# Usage
+
+# Limitations
 
 # References
 - https://stackoverflow.com/questions/32841368/whats-the-difference-between-the-import-table-import-adress-table-and-import
