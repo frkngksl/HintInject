@@ -1,5 +1,5 @@
 # HideThunk
-HideThunk is a shellcode embedder that I developed while playing with the PE file and Import Directory Table structures. It takes a raw shellcode file and puts the shellcode in chunks into the Hint/Name Table which are reachable via the Import Lookup Table of a fake imported DLL entry on the loader executable.
+HideThunk is a shellcode embedder that I developed while playing with the PE file and Import Directory Table structures. It takes a raw shellcode file and puts the shellcode in chunks into the Hint/Name Table entries which are reachable via the Import Lookup Table of a fake imported DLL entry on the loader executable. The loader then merges these chunks to execute the shellcode
 
 # DLL Loading Process
 Before explaining how HideThunk works, I want to briefly mention about the DLL Loading process by referencing a post in Stack Overflow.
@@ -27,7 +27,7 @@ To conclude, in order to find a DLL and its imports, one should follow these ste
 
 1. Go to Import Directory Table from the DataDirectory array of Optional Header.
 2. Traverse the Import Directory Table entries for finding the desired DLL by checking its name field.
-3. After finding the correct entry, go to its Import Lookup Table.
+3. After finding the correct entry, go to its Import Lookup Table by using the OriginalFirstThunk field.
 4. Traverse the all entries in the Import Lookup Table which are pointers to Hint/Name Table entries.
 5. Check import names from the Name field of Hint/Name Table entries.
 
@@ -36,7 +36,9 @@ Recently, while examining the ImportDLLInjection technique shared by x86matthew,
 
 According to the MSDN document, I learned that this field is used by Windows Loader to find the address of that import, which is imported by name, directly from the export name table of the DLL it is in. However, in the same document, it was stated that if the function cannot be found by using this field, that function will be searched via a binary search operation in the DLL's export name table. Based on this sentence, I thought that putting an incorrect value for this field would not disrupt the DLL Loading process.
 
-As I mentioned above, there is an entry to the Hint/Name table corresponding to each function to be imported. In other words, we have 2 bytes to use for each import.
+As I mentioned above, there is an entry to the Hint/Name table corresponding to each function to be imported. In other words, we have 2 bytes to use for each import. By combining multiple imports, enough Hint fields can be obtained to store malicious shellcodes. As a result, one can use a loader binary to embed the shellcode in the Hint/Name entries of the fake import DLL entry. That loader binary can reach these entries to merge the shellcode to be executed during runtime.
+
+HideThunk can be used to create such a loader that holds the shellcode in its Hint/Name table.
 
 # Files
 
