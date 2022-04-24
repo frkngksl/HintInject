@@ -1,8 +1,8 @@
-# HideThunk
-HideThunk is a shellcode embedder that I developed while playing with the PE file and Import Directory Table structures. It takes a raw shellcode file and puts the shellcode in chunks into the Hint/Name Table entries which are reachable via the Import Lookup Table of a fake imported DLL entry on the loader executable. The loader then merges these chunks to execute the shellcode
+# HintInject
+HintInject is a shellcode embedder and loader that I developed while playing with the PE file and Import Directory Table structures. It takes a raw shellcode file and puts the shellcode in chunks into the Hint/Name Table entries which are reachable via the Import Lookup Table of a fake imported DLL entry on the loader executable. The loader then merges these chunks to execute the shellcode
 
 # DLL Loading Process
-Before explaining how HideThunk works, I want to briefly mention about the DLL Loading process by referencing a post in Stack Overflow.
+Before explaining how HintInject works, I want to briefly mention about the DLL Loading process by referencing a post in Stack Overflow.
 
 To get the information of required DLLs and functions/imports, one should look at the `Import Directory Table` firstly. Import Directory Table is a table of entries, one entry for every imported DLL. These entries hold a pointer to the imported DLL name, a pointer to `Import Lookup Table`, a pointer to `Import Address Table`, and other fields for different information. 
 
@@ -35,14 +35,14 @@ To conclude, in order to find a DLL and its imports, one should follow these ste
 4. Traverse the all entries in the Import Lookup Table which are pointers to Hint/Name Table entries.
 5. Check import names from the Name field of Hint/Name Table entries.
 
-# How HideThunk Works?
+# How HintInject Works?
 Recently, while examining the ImportDLLInjection technique shared by x86matthew, I saw how to add a fake entry to the Import Directory of DLLs loaded in memory. Afterwards, I wanted to develop a little project that adds a fake entry directly to the import table of a binary on disk, both for fun and to refresh my knowledge. While reviewing the DLL Loading process to develop this project, the Hint field in the Hint/Name Table entries used in this process caught my attention. 
 
 According to the MSDN document, I learned that this field is used by Windows Loader to find the address of that import, which is imported by name, directly from the export name table of the DLL it is in. However, in the same document, it was stated that if the function cannot be found by using this field, that function will be searched via a binary search operation in the DLL's export name table. Based on this sentence, I thought that putting an incorrect value for this field would not disrupt the DLL Loading process.
 
 As I mentioned above, there is an entry to the Hint/Name table corresponding to each function to be imported. In other words, we have 2 bytes to use for each import. By combining multiple imports, enough Hint fields can be obtained to store malicious shellcodes. As a result, one can use a loader binary to embed the shellcode in the Hint/Name entries of the fake import DLL entry. That loader binary can reach these entries to merge the shellcode to be executed during runtime.
 
-HideThunk can be used to create such a loader that holds the shellcode in its Hint/Name table. It firsts creates a new section named `.rrdata`, and copies the current import directory into this section. After that, it appends a new fake entry whose imports will be used to hold input shellcode. The remaining bytes of the section are used as to store Import Lookup Table, Import Address Table, DLL name and Hint/Name table of the new fake entry. As the last step, HideThunk uses the Hint fields of imports to put chunks of input shellcode. Approximately, the memory layout of the new section is as follows:
+HintInject can be used to create such a loader that holds the shellcode in its Hint/Name table. It firsts creates a new section named `.rrdata`, and copies the current import directory into this section. After that, it appends a new fake entry whose imports will be used to hold input shellcode. The remaining bytes of the section are used as to store Import Lookup Table, Import Address Table, DLL name and Hint/Name table of the new fake entry. As the last step, HintInject uses the Hint fields of imports to put chunks of input shellcode. Approximately, the memory layout of the new section is as follows:
 
 <p align="center">
 <img width="460" height="400" src="https://user-images.githubusercontent.com/26549173/164948439-a7e05320-a290-4a44-9dcf-3ac680b9c275.png">
