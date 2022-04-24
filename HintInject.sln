@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.32407.337
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HintInject", "HintInject.vcxproj", "{EA98E741-A1BC-4D6B-B702-9659DE39A60C}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HintInjectLoader", "HintInjectLoader\HintInjectLoader\HintInjectLoader.vcxproj", "{F17D44F3-C60A-4B9E-BAF5-7A91FFD2E990}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HintInjectLoader", "HintInjectLoader\HintInjectLoader.vcxproj", "{F17D44F3-C60A-4B9E-BAF5-7A91FFD2E990}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
