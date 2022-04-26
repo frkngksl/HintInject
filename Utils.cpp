@@ -44,14 +44,14 @@ char* CompileLoader() {
 	if (pipe != NULL) {
 		char compilerPath[MAX_PATH] = { 0 };
 		char fullCommand[MAX_PATH] = { 0 };
+		char loaderBinaryPath[MAX_PATH] = { 0 };
 		if (fgets(compilerPath, MAX_PATH, pipe) != NULL) {
 			//Remove new line
 			compilerPath[strlen(compilerPath) - 1] = '\0';
 			sprintf_s(fullCommand, "\"\"%s\\MSBuild\\Current\\Bin\\MSBuild.exe\" %s\\HintInject.sln /t:HintInjectLoader /property:Configuration=JustLoader /property:RuntimeLibrary=MT\"\n", compilerPath, SOLUTIONDIR);
 			FILE* pipe2 = _popen(fullCommand, "rt");
 			_pclose(pipe2);
-			char* loaderBinaryPath = (char*)malloc(MAX_PATH);
-			sprintf(loaderBinaryPath, "%sx64\\JustLoader\\HintInjectLoader.exe", SOLUTIONDIR);
+			sprintf_s(loaderBinaryPath, "%sx64\\JustLoader\\HintInjectLoader.exe", SOLUTIONDIR);
 			if (INVALID_FILE_ATTRIBUTES == GetFileAttributesA(loaderBinaryPath) && GetLastError() == ERROR_FILE_NOT_FOUND) {
 				std::cout << "[!] Compiled binary not found!" << std::endl;
 				free(loaderBinaryPath);

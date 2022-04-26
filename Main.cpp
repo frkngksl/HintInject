@@ -15,7 +15,7 @@ void PrintBanner() {
 }
 
 void PrintHelp(LPCSTR exeName) {
-	std::cout << "Usage: " << exeName << "<Shellcode File> <Output Name>";
+	std::cout << "[+] Usage: " << exeName << "<Shellcode File> <Output Name>";
 }
 
 
@@ -26,12 +26,22 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	srand(time(NULL));
-	size_t fileSize = 0;
-	PBYTE shellcodeContent = ReadFileFromDisk(argv[1], fileSize);
-	if (shellcodeContent == NULL || fileSize == 0) {
-		std::cout << "[!] Error on reading the exe file !" << std::endl;
-		return 0;
+	size_t shellcodeSize = 0;
+	size_t loaderSize = 0;
+	PBYTE shellcodeContent = ReadFileFromDisk(argv[1], shellcodeSize);
+	if (shellcodeContent == NULL || shellcodeSize == 0) {
+		std::cout << "[!] Error on reading the shellcode file !" << std::endl;
+		return -1;
 	}
-	std::cout << CompileLoader() << std::endl;
+	LPCSTR loaderPath = CompileLoader();
+	if (loaderPath == NULL) {
+		std::cout << "[!] Error on loader compilation !" << std::endl;
+		return -1;
+	}
+	PBYTE loaderContent = ReadFileFromDisk(loaderPath, loaderSize);
+	if (loaderContent == NULL || loaderSize == 0) {
+		std::cout << "[!] Error on reading the loader binary !" << std::endl;
+		return -1;
+	}
 	return 0;
 }
