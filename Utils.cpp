@@ -39,21 +39,26 @@ void ClearDirectory() {
 
 char* CompileLoader() {
 	ClearDirectory();
+	// Find where is the VS compiler
 	LPCSTR vsWhere = "\"\"C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -products * -requires Microsoft.Component.MSBuild -property installationPath\"";
+	// Run it
 	FILE* pipe = _popen(vsWhere, "rt");
 	if (pipe != NULL) {
 		char compilerPath[MAX_PATH] = { 0 };
 		char fullCommand[MAX_PATH] = { 0 };
-		char* loaderBinaryPath = (char*)HeapAlloc(GetProcessHeap(), 0, MAX_PATH);
+		char* loaderBinaryPath = (char*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, MAX_PATH);
+		// Find the compiler path
 		if (fgets(compilerPath, MAX_PATH, pipe) != NULL) {
 			//Remove new line
 			compilerPath[strlen(compilerPath) - 1] = '\0';
 			sprintf_s(fullCommand, "\"\"%s\\MSBuild\\Current\\Bin\\MSBuild.exe\" %s\\HintInject.sln /t:HintInjectLoader /property:Configuration=JustLoader /property:RuntimeLibrary=MT\"\n", compilerPath, SOLUTIONDIR);
+			// Compile the loader
 			FILE* pipe2 = _popen(fullCommand, "rt");
 			_pclose(pipe2);
 			memset(fullCommand, 0x00, MAX_PATH);
 			sprintf_s(fullCommand, "%sx64\\JustLoader\\HintInjectLoader.exe", SOLUTIONDIR);
 			memcpy(loaderBinaryPath, fullCommand, MAX_PATH);
+			// Check the binary is compiled
 			if (INVALID_FILE_ATTRIBUTES == GetFileAttributesA(loaderBinaryPath) && GetLastError() == ERROR_FILE_NOT_FOUND) {
 				std::cout << "[!] Compiled binary not found!" << std::endl;
 				free(loaderBinaryPath);
@@ -86,7 +91,7 @@ PBYTE ReadFileFromDisk(LPCSTR fileName, uint64_t& fileSize) {
 		std::cout << ("Failed to get the file size\n");
 		return NULL;
 	}
-	PBYTE fileBuffer = (PBYTE)HeapAlloc(GetProcessHeap(), 0, fileSize);
+	PBYTE fileBuffer = (PBYTE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, fileSize);
 	if (!fileBuffer) {
 		std::cout << ("Failed to get the file size\n");
 		return NULL;
@@ -124,7 +129,7 @@ bool WriteNewPE(LPCSTR fileName, PBYTE buffer, uint64_t size) {
 
 PBYTE SplitShellcode(PBYTE shellcodeBuffer, uint64_t sizeOfShellcode, uint64_t& numberOfChunks) {
 	numberOfChunks = ceil(sizeOfShellcode / 2.0);
-	PBYTE returnValue = (PBYTE)HeapAlloc(GetProcessHeap(), 0, numberOfChunks * sizeof(WORD));
+	PBYTE returnValue = (PBYTE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, numberOfChunks * sizeof(WORD));
 	// May not be required
 	memset(returnValue, 0x00, sizeof(WORD) * numberOfChunks);
 	memcpy(returnValue, shellcodeBuffer, sizeOfShellcode);

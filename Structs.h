@@ -1,0 +1,10 @@
+#pragma once
+typedef struct{
+	LPCSTR name;
+	LPCSTR* nameofImports;
+	PBYTE* offsetArray;
+	int numberOfImports;
+	PBYTE firstThunkAddr;
+	PBYTE originalFirstThunkAddr;
+	PBYTE nameAddr;
+} FAKEIMPORT;

@@ -214,6 +214,7 @@
   <ItemGroup>
     <ClInclude Include="DllNamesForFakeImports.h" />
     <ClInclude Include="FakeEntry.h" />
+    <ClInclude Include="Structs.h" />
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
