@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 		PrintHelp(argv[0]);
 		return -1;
 	}
-	srand(time(NULL));
+	srand(1234);
 	size_t shellcodeSize = 0;
 	size_t loaderSize = 0;
 	size_t newPESize = 0;
@@ -68,7 +68,10 @@ int main(int argc, char* argv[]) {
 	}
 	std::cout << "[+] .rrdata section is added !" << std::endl;
 	// By using the new section, clone the existing IAT and fake ones to this section
-	AddNewImportEntry(newPeFileContent,(PWORD) hintArray, numberOfChunks);
+	if (!AddNewImportEntry(newPeFileContent, (PWORD)hintArray, numberOfChunks)) {
+		std::cout << "[!] Error on adding new import entry !" << std::endl;
+		return -1;
+	}
 	std::cout << "[+] Fake entries appended to the original IAT" << std::endl;
 	// Write the new PE file to the disk
 	if (!WriteNewPE(argv[2], newPeFileContent, newPESize)) {

