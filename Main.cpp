@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 		PrintHelp(argv[0]);
 		return -1;
 	}
-	srand(1234);
+	srand(time(NULL));
 	size_t shellcodeSize = 0;
 	size_t loaderSize = 0;
 	size_t newPESize = 0;
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
 		std::cout << "[!] Error on adding new import entry !" << std::endl;
 		return -1;
 	}
-	std::cout << "[+] Fake entries appended to the original IAT" << std::endl;
+	std::cout << "[+] Fake entries are appended to the original IAT !" << std::endl;
 	// Write the new PE file to the disk
 	if (!WriteNewPE(argv[2], newPeFileContent, newPESize)) {
 		std::cout << "[!] Error on writing to " << argv[2]<< std::endl;

