@@ -85,27 +85,26 @@ char* CompileLoader() {
 PBYTE ReadFileFromDisk(LPCSTR fileName, uint64_t& fileSize) {
 	HANDLE hFile = CreateFileA(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
-		std::cout << "Failed to open the file\n";
-		std::cout << GetLastError() << std::endl;
+		std::cout << "[!] Failed to open the file\n";
 		return NULL;
 	}
 	fileSize = GetFileSize(hFile, NULL);
 	if (fileSize == INVALID_FILE_SIZE || fileSize == 0) {
-		std::cout << ("Failed to get the file size\n");
+		std::cout << ("[!] Failed to get the file size\n");
 		return NULL;
 	}
 	PBYTE fileBuffer = (PBYTE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, fileSize);
 	if (!fileBuffer) {
-		std::cout << ("Failed to get the file size\n");
+		std::cout << ("[!] Failed to get the file size\n");
 		return NULL;
 	}
 	DWORD dwBytesRead = 0;
 	if (ReadFile(hFile, fileBuffer, fileSize, &dwBytesRead, NULL) == FALSE) {
-		std::cout << ("Failed to alloc a buffer!\n");
+		std::cout << ("[!] Failed to alloc a buffer!\n");
 		return NULL;
 	}
 	if (dwBytesRead != fileSize) {
-		std::cout << ("Size problem!\n");
+		std::cout << ("[!] Size problem!\n");
 		return NULL;
 	}
 	CloseHandle(hFile);
@@ -118,12 +117,12 @@ bool WriteNewPE(LPCSTR fileName, PBYTE buffer, uint64_t size) {
 	DWORD dwBytesWritten = 0;
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
-		std::cout << "Terminal failure: Unable to open file for write.\n";
+		std::cout << "[!] Terminal failure: Unable to open file for write.\n";
 		return false;
 	}
 
 	if (!WriteFile(hFile, buffer, size, &dwBytesWritten, NULL)) {
-		std::cout << "Write failure.\n";
+		std::cout << "[!] Write failure.\n";
 		return false;
 	}
 	CloseHandle(hFile);
@@ -134,7 +133,7 @@ PBYTE SplitShellcode(PBYTE shellcodeBuffer, uint64_t sizeOfShellcode, uint64_t& 
 	numberOfChunks = ceil(sizeOfShellcode / 2.0);
 	PBYTE returnValue = (PBYTE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, numberOfChunks * sizeof(WORD));
 	if (returnValue == NULL) {
-		std::cout << "Error on heap allocation !" << std::endl;
+		std::cout << "[!] Error on heap allocation !" << std::endl;
 		return NULL;
 	}
 	// May not be required

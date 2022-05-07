@@ -298,7 +298,6 @@ bool AddNewImportEntry(PBYTE fileBuffer,PWORD hintArray,uint64_t numberOfChunks)
 			memcpy(&(hintNameEntries->Name), fakeImportList[i].nameofImports[j], strlen(fakeImportList[i].nameofImports[j]));
 			// Save the hint/name table entries address for saving
 			fakeImportList[i].offsetArray[j] = (PBYTE ) (&(hintNameEntries->Hint));
-			// BUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG jValue 2bd, i value 0
 			hintNameEntries = (PIMAGE_IMPORT_BY_NAME)(((PBYTE)hintNameEntries) + sizeof(WORD) + strlen(fakeImportList[i].nameofImports[j]) + 1);
 		}
 	}
