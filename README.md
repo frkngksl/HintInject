@@ -48,11 +48,28 @@ HintInject can be used to create such a loader that holds the shellcode in its H
 <img width="460" height="400" src="https://user-images.githubusercontent.com/26549173/164948439-a7e05320-a290-4a44-9dcf-3ac680b9c275.png">
 </p>
 
-# Files
-
 # Usage
 
+1. Build the project with the Release option.
+2. Execute `HintInject.exe` with your shellcode in the raw format and an output path to create a shellcode loader: `HintInject.exe <Shellcode File> <Output Name>`
+3. Run loader to execute shellcode directly, or you can give a PID to inject shellcode: `Loader.exe <PID>`
+
+Tested on Windows 10 19044 with Visual Studio 2019:
+
+<p align="center">
+<img width="850" height="600" src="https://user-images.githubusercontent.com/26549173/167260148-da29313a-e569-4053-a960-435d3207b1b5.gif">
+</p>
+
+
 # Limitations
+
+1. Regarding the fake DLL entries on the loader that executes the shellcode, both the DLL and the imported function names must actually exist. Otherwise, it gives Missing DLL error while starting loader executable. Therefore, I used a few legitimate dlls under System32 in the project.
+2. If your shellcode size is bigger and can't be created a loader for your shellcode, you can add other dlls to `dllNames` array in the `DllNamesForFakeImports.h` file.
+3. For each created loader the imported functions are selected randomly. However, if you want to change the order of dlls that are used to create fake entries, you should edit the `dllNames` array in the `DllNamesForFakeImports.h` file too. By default, HintInject will choose functions from the dlss according to the array order. In other words, the tool first selects exported functions from user32.dll, if the shellcode size is bigger than `2 * number of user32.dll exports`, it also starts using the exports of advapi32.dll and others.
+```c++
+static LPCSTR dllNames[] = {"user32.dll","advapi32.dll","gdi32.dll","wininet.dll","comctl32.dll","shell32.dll","wsock32.dll","oleaut32.dll","ws2_32.dll","urlmon.dll"};
+
+```
 
 # References
 - https://stackoverflow.com/questions/32841368/whats-the-difference-between-the-import-table-import-adress-table-and-import
