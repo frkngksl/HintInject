@@ -48,6 +48,12 @@ HintInject can be used to create such a loader that holds the shellcode in its H
 <img width="460" height="400" src="https://user-images.githubusercontent.com/26549173/164948439-a7e05320-a290-4a44-9dcf-3ac680b9c275.png">
 </p>
 
+Example imports of a loader binary:
+
+<p align="center">
+<img width="850" alt="Screen Shot 2022-05-08 at 11 43 42" src="https://user-images.githubusercontent.com/26549173/167288690-07bba71e-a21f-4f6c-832c-4dcc346b1555.png">
+</p>
+
 # Usage
 
 1. Build the project with the Release option.
