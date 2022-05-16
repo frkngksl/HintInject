@@ -42,11 +42,7 @@ According to the MSDN document, I learned that this field is used by Windows Loa
 
 As I mentioned above, there is an entry to the Hint/Name table corresponding to each function to be imported. In other words, we have 2 bytes to use for each import. By combining multiple imports, enough Hint fields can be obtained to store malicious shellcodes. As a result, one can use a loader binary to embed the shellcode in the Hint/Name entries of the fake import DLL entry. That loader binary can reach these entries to merge the shellcode to be executed during runtime.
 
-HintInject can be used to create such a loader that holds the shellcode in its Hint/Name table. It firsts creates a new section named `.rrdata` and copies the current import directory into this section. After that, it appends a new fake entry whose imports will be used to hold the input shellcode. The remaining bytes of the section are used to store Import Lookup Table, Import Address Table, DLL name, and Hint/Name table of the new fake entry. As the last step, HintInject uses the Hint fields of imports to put chunks of input shellcode. Approximately, the memory layout of the new section is as follows:
-
-<p align="center">
-<img width="460" height="400" src="https://user-images.githubusercontent.com/26549173/164948439-a7e05320-a290-4a44-9dcf-3ac680b9c275.png">
-</p>
+HintInject can be used to create such a loader that holds the shellcode in its Hint/Name table. It firsts creates a new section named `.rrdata` and copies the current import directory into this section. After that, it appends a new fake entry whose imports will be used to hold the input shellcode. The remaining bytes of the section are used to store Import Lookup Table, Import Address Table, DLL name, and Hint/Name table of the new fake entry. As the last step, HintInject uses the Hint fields of imports to put chunks of input shellcode.
 
 Example imports of a loader binary:
 
