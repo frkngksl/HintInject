@@ -80,3 +80,7 @@ static LPCSTR dllNames[] = {"user32.dll","advapi32.dll","gdi32.dll","wininet.dll
 - https://0xrick.github.io/win-internals/pe6/
 - https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#hintname-table
 - https://www.x86matthew.com/view_post?id=import_dll_injection
+
+## Disclaimer
+
+For authorized security testing only. Misuse of this tool against systems without explicit permission is illegal.
